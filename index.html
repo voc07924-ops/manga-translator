@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dịch Truyện — công cụ dịch truyện tranh sang tiếng Việt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --ink:#121014;
+    --ink-2:#1b181e;
+    --paper:#efe7d8;
+    --paper-dim:#b9ae9a;
+    --line:#38333b;
+    --accent:#e4572e;
+    --accent-dim:#7a2c17;
+    --teal:#5c9090;
+    --ok:#79a86b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ink);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(239,231,216,0.05) 1px, transparent 1px);
+    background-size:14px 14px;
+    color:var(--paper);
+    font-family:'Oswald',sans-serif;
+    min-height:100vh;
+  }
+  header{
+    padding:32px 5vw 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+  }
+  .brand h1{
+    font-family:'Archivo Black',sans-serif;
+    font-size:clamp(28px,4vw,42px);
+    letter-spacing:1px;
+    margin:0;
+    color:var(--paper);
+    position:relative;
+  }
+  .brand h1 span{color:var(--accent);}
+  .brand small{
+    color:var(--paper-dim);
+    font-size:13px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+  }
+  .tagline{
+    margin:8px 0 0;
+    color:var(--paper-dim);
+    font-size:14.5px;
+    max-width:640px;
+    line-height:1.5;
+  }
+  main{
+    padding:28px 5vw 140px;
+    max-width:1280px;
+    margin:0 auto;
+  }
+  .panel{
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:20px 22px;
+    margin-bottom:22px;
+  }
+  .panel-title{
+    font-family:'Archivo Black',sans-serif;
+    font-size:13px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 14px;
+  }
+  .controls-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:24px;
+  }
+  .field{ min-width:220px; flex:1; }
+  .field label{
+    display:block;
+    font-size:12px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    margin-bottom:8px;
+  }
+  select, input[type=range]{
+    width:100%;
+    background:var(--ink);
+    color:var(--paper);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:10px 12px;
+    font-family:'Oswald',sans-serif;
+    font-size:14.5px;
+  }
+  select:focus, input:focus, button:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  .hint{font-size:12px;color:var(--paper-dim);margin-top:6px;}
+
+  #dropzone{
+    border:2px dashed var(--line);
+    border-radius:6px;
+    padding:60px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    position:relative;
+  }
+  #dropzone.drag{
+    border-color:var(--accent);
+    background:rgba(228,87,46,0.06);
+  }
+  #dropzone svg{width:40px;height:40px;stroke:var(--paper-dim);margin-bottom:14px;}
+  #dropzone h3{
+    font-family:'Archivo Black',sans-serif;
+    font-size:22px;
+    margin:0 0 8px;
+  }
+  #dropzone p{color:var(--paper-dim);font-size:13.5px;margin:4px 0;}
+  #dropzone .stamp{
+    position:absolute; top:14px; right:18px;
+    border:2px solid var(--accent-dim); color:var(--accent);
+    padding:3px 10px; font-size:11px; letter-spacing:2px;
+    transform:rotate(4deg); border-radius:3px; opacity:0.75;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:14px;
+    margin-top:20px;
+  }
+  .card{
+    background:var(--ink);
+    border:1px solid var(--line);
+    border-radius:4px;
+    overflow:hidden;
+    position:relative;
+  }
+  .card img{width:100%;height:190px;object-fit:cover;display:block;background:#000;}
+  .card .remove{
+    position:absolute; top:6px; right:6px;
+    width:26px;height:26px;border-radius:50%;
+    background:rgba(18,16,20,0.85); border:1px solid var(--line);
+    color:var(--paper); font-size:14px; line-height:1;
+    cursor:pointer; display:flex;align-items:center;justify-content:center;
+  }
+  .card .remove:hover{background:var(--accent); border-color:var(--accent);}
+  .card .name{
+    font-size:11px; padding:6px 8px; color:var(--paper-dim);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    border-top:1px solid var(--line);
+  }
+  .card .badge{
+    position:absolute; bottom:26px; left:6px;
+    font-size:10px; letter-spacing:1px; padding:2px 7px;
+    border-radius:2px; text-transform:uppercase;
+  }
+  .badge.pending{background:var(--line); color:var(--paper-dim);}
+  .badge.working{background:var(--teal); color:#08201f;}
+  .badge.done{background:var(--ok); color:#0d2308;}
+  .badge.error{background:var(--accent); color:#2a0c04;}
+  .badge.warn{background:#c9a227; color:#241b02;}
+
+  .actionbar{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--ink-2); border-top:1px solid var(--line);
+    padding:16px 5vw; display:flex; align-items:center; gap:18px;
+    flex-wrap:wrap;
+  }
+  button.primary, button.secondary{
+    font-family:'Archivo Black',sans-serif;
+    font-size:14px; letter-spacing:1px; text-transform:uppercase;
+    padding:13px 26px; border-radius:3px; cursor:pointer; border:none;
+  }
+  button.primary{background:var(--accent); color:#1a0a04;}
+  button.primary:disabled{background:var(--line); color:var(--paper-dim); cursor:not-allowed;}
+  button.primary:hover:not(:disabled){background:#f16a41;}
+  button.secondary{background:transparent; border:1px solid var(--paper-dim); color:var(--paper);}
+  button.secondary:hover{border-color:var(--paper);}
+  .progress-wrap{flex:1; min-width:200px;}
+  .progress-track{
+    height:8px; background:var(--ink); border:1px solid var(--line); border-radius:4px; overflow:hidden;
+  }
+  .progress-fill{height:100%; width:0%; background:var(--accent); transition:width .2s;}
+  .progress-label{font-size:12px; color:var(--paper-dim); margin-top:6px;}
+  .count-pill{
+    font-size:12px; color:var(--paper-dim); border:1px solid var(--line);
+    padding:6px 12px; border-radius:20px;
+  }
+  .empty-msg{color:var(--paper-dim); font-size:13.5px; margin-top:14px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Dịch<span>Truyện</span></h1>
+    <small>Manga / Comic → Tiếng Việt</small>
+  </div>
+  <p class="tagline">Thả ảnh truyện tranh vào, xoá bớt trang không cần, rồi để công cụ tự nhận diện chữ trong khung thoại và dịch sang tiếng Việt — chạy hoàn toàn trong trình duyệt của bạn, không tính phí, không giới hạn số lượt dịch.</p>
+</header>
+
+<main>
+
+  <div class="panel">
+    <p class="panel-title">Bộ máy dịch</p>
+    <div class="controls-row">
+      <div class="field">
+        <label for="engineMode">Chọn bộ máy</label>
+        <select id="engineMode">
+          <option value="tesseract">Miễn phí (Tesseract + Google Dịch) — nhanh, độ chính xác vừa phải</option>
+          <option value="gemini">Gemini AI — chính xác &amp; tự nhiên hơn nhiều, cần API key miễn phí của bạn</option>
+        </select>
+        <p class="hint">Gemini đọc chữ cách điệu trong manga và dịch theo ngữ cảnh tốt hơn hẳn so với OCR miễn phí thông thường.</p>
+      </div>
+    </div>
+    <div id="geminiPanel" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
+      <div class="controls-row">
+        <div class="field">
+          <label for="geminiKey">Gemini API key (của riêng bạn)</label>
+          <input type="password" id="geminiKey" placeholder="Dán API key vào đây" style="width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--line); border-radius:3px; padding:10px 12px; font-family:'Oswald',sans-serif; font-size:14.5px;">
+          <p class="hint">Lấy API key miễn phí tại <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent);">aistudio.google.com/apikey</a> (đăng nhập bằng tài khoản Google). Key chỉ lưu trên máy bạn, không gửi cho ai khác ngoài Google.</p>
+        </div>
+        <div class="field" style="flex:0 0 auto;">
+          <label>&nbsp;</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--paper-dim); cursor:pointer;">
+            <input type="checkbox" id="rememberKey"> Nhớ key này trên máy tôi
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Thiết lập dịch</p>
+    <div class="controls-row">
+      <div class="field">
+        <label for="srcLang">Ngôn ngữ gốc trong ảnh</label>
+        <select id="srcLang">
+          <option value="jpn_vert">Tiếng Nhật — chữ dọc (đa số manga)</option>
+          <option value="jpn">Tiếng Nhật — chữ ngang (bìa/chú thích)</option>
+          <option value="eng">Tiếng Anh</option>
+          <option value="kor">Tiếng Hàn (manhwa)</option>
+          <option value="chi_sim">Tiếng Trung giản thể</option>
+          <option value="chi_tra">Tiếng Trung phồn thể (manhua)</option>
+          <option value="jpn+eng+kor+chi_sim">Tự động (nhiều ngôn ngữ — chậm hơn)</option>
+        </select>
+        <p class="hint" id="srcLangHint">Đa số manga dùng chữ viết dọc — chọn "chữ dọc" sẽ nhận diện chính xác hơn hẳn so với "chữ ngang". (Không cần chọn nếu đang dùng Gemini — Gemini tự nhận diện mọi ngôn ngữ.)</p>
+      </div>
+      <div class="field">
+        <label for="fontSize">Cỡ chữ dịch (tương đối theo khung)</label>
+        <input type="range" id="fontSize" min="50" max="140" value="75">
+        <p class="hint">Kéo để chữ tiếng Việt to/nhỏ hơn khi ghi đè lên khung thoại.</p>
+      </div>
+      <div class="field">
+        <label for="bubbleShape">Kiểu khung chữ đè lên</label>
+        <select id="bubbleShape">
+          <option value="rounded" selected>Bo tròn (giống bong bóng thoại)</option>
+          <option value="rect">Chữ nhật vuông góc</option>
+        </select>
+        <p class="hint">Bo tròn thường hợp với bong bóng thoại thật hơn hình chữ nhật cứng.</p>
+      </div>
+      <div class="field">
+        <label for="concurrency">Số ảnh xử lý song song</label>
+        <select id="concurrency">
+          <option value="1">1 (máy yếu / ảnh nặng)</option>
+          <option value="2" selected>2 (mặc định)</option>
+          <option value="3">3 (máy khoẻ)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Ảnh truyện</p>
+    <div id="dropzone">
+      <span class="stamp">local · không cần credit</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M6 9l6-6 6 6M4 21h16"/></svg>
+      <h3>Thả ảnh truyện vào đây</h3>
+      <p>PNG, JPG/JPEG, WEBP — kéo cả thư mục hoặc file ZIP đều được.</p>
+      <p>Không giới hạn cứng số lượng ảnh — số lượng thực tế phụ thuộc bộ nhớ &amp; tốc độ máy bạn.</p>
+      <p><u id="pickFolder">Chọn thư mục</u> &nbsp;·&nbsp; <u id="pickFiles">Chọn file ảnh / ZIP</u></p>
+    </div>
+    <input type="file" id="fileInputFiles" multiple accept="image/png,image/jpeg,image/webp,.zip" style="display:none">
+    <input type="file" id="fileInputFolder" multiple webkitdirectory style="display:none">
+
+    <div id="grid" class="grid"></div>
+    <p class="empty-msg" id="emptyMsg">Chưa có ảnh nào. Thả ảnh, chọn thư mục, hoặc chọn file ZIP để bắt đầu.</p>
+    <div id="errorBanner" style="display:none; margin-top:16px; padding:12px 16px; border:1px solid var(--accent); background:rgba(228,87,46,0.1); border-radius:4px; font-size:13px; color:var(--paper); line-height:1.5;"></div>
+  </div>
+
+</main>
+
+<div class="actionbar">
+  <span class="count-pill" id="countPill">0 ảnh</span>
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel">Sẵn sàng</div>
+  </div>
+  <button class="secondary" id="clearBtn">Xoá tất cả</button>
+  <button class="primary" id="translateBtn" disabled>Bắt đầu dịch</button>
+  <button class="primary" id="downloadBtn" disabled>Tải về ZIP (JPG)</button>
+</div>
+
+<script>
+(function(){
+  const state = { items: [], processing:false };
+  let idCounter = 0;
+  const OCR_MAX_DIM = 1500;   // downscale before OCR: much faster, still readable for detection
+  const OUT_MAX_DIM = 2200;   // cap output canvas: avoids blank/black exports on some mobile browsers
+  const GEMINI_MAX_DIM = 1280; // max dimension sent to Gemini — smaller = faster round trip
+  const BASE_FONT = 30;        // px on the (max 2200px) output canvas — sensible default size, independent of box height
+
+  const engineMode = document.getElementById('engineMode');
+  const geminiPanel = document.getElementById('geminiPanel');
+  const geminiKeyInput = document.getElementById('geminiKey');
+  const rememberKeyBox = document.getElementById('rememberKey');
+  const srcLangHint = document.getElementById('srcLangHint');
+  const srcLangSelect = document.getElementById('srcLang');
+
+  function safeLocalStorageGet(key){
+    try{ return localStorage.getItem(key); }catch(e){ return null; }
+  }
+  function safeLocalStorageSet(key, val){
+    try{ localStorage.setItem(key, val); }catch(e){ /* private mode / restricted context — ignore */ }
+  }
+  function safeLocalStorageRemove(key){
+    try{ localStorage.removeItem(key); }catch(e){}
+  }
+
+  const savedKey = safeLocalStorageGet('mangaTranslatorGeminiKey');
+  if(savedKey){ geminiKeyInput.value = savedKey; rememberKeyBox.checked = true; }
+
+  function updateEngineUI(){
+    const isGemini = engineMode.value === 'gemini';
+    geminiPanel.style.display = isGemini ? 'block' : 'none';
+    srcLangSelect.parentElement.style.opacity = isGemini ? '0.5' : '1';
+    srcLangHint.textContent = isGemini
+      ? 'Không cần chọn khi dùng Gemini — Gemini tự nhận diện mọi ngôn ngữ trong ảnh.'
+      : 'Đa số manga dùng chữ viết dọc — chọn "chữ dọc" sẽ nhận diện chính xác hơn hẳn so với "chữ ngang".';
+  }
+  engineMode.addEventListener('change', updateEngineUI);
+  updateEngineUI();
+
+  rememberKeyBox.addEventListener('change', () => {
+    if(rememberKeyBox.checked && geminiKeyInput.value.trim()){
+      safeLocalStorageSet('mangaTranslatorGeminiKey', geminiKeyInput.value.trim());
+    } else {
+      safeLocalStorageRemove('mangaTranslatorGeminiKey');
+    }
+  });
+  geminiKeyInput.addEventListener('input', () => {
+    if(rememberKeyBox.checked) safeLocalStorageSet('mangaTranslatorGeminiKey', geminiKeyInput.value.trim());
+  });
+
+  const emptyMsg = document.getElementById('emptyMsg');
+  const countPill = document.getElementById('countPill');
+  const translateBtn = document.getElementById('translateBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const dropzone = document.getElementById('dropzone');
+  const fileInputFiles = document.getElementById('fileInputFiles');
+  const fileInputFolder = document.getElementById('fileInputFolder');
+
+  function isImageFile(name){
+    return /\.(png|jpe?g|webp)$/i.test(name);
+  }
+
+  // Browsers/OS file pickers don't reliably return files in numeric page order
+  // (e.g. "14.jpg" can come back before "1.jpg"). Sort by the last number found
+  // in the filename so pages stay in true reading order 1,2,3...N.
+  function extractPageNumber(name){
+    const matches = name.match(/\d+/g);
+    if(!matches) return Infinity;
+    return parseInt(matches[matches.length - 1], 10);
+  }
+
+  function sortItemsByPageNumber(){
+    state.items.sort((a, b) => {
+      const na = extractPageNumber(a.name), nb = extractPageNumber(b.name);
+      if(na !== nb) return na - nb;
+      return a.addedIndex - b.addedIndex; // stable fallback for names with no number
+    });
+  }
+
+  async function addFileList(fileList){
+    const files = Array.from(fileList);
+    for(const f of files){
+      if(/\.zip$/i.test(f.name)){
+        await addZip(f);
+      } else if(f.type.startsWith('image/') || isImageFile(f.name)){
+        addImageFile(f);
+      }
+    }
+    sortItemsByPageNumber();
+    refreshUI();
+  }
+
+  async function addZip(zipFile){
+    try{
+      const zip = await JSZip.loadAsync(zipFile);
+      const entries = Object.values(zip.files).filter(e => !e.dir && isImageFile(e.name));
+      entries.sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true}));
+      for(const entry of entries){
+        const blob = await entry.async('blob');
+        const name = entry.name.split('/').pop();
+        addImageFile(new File([blob], name, {type: blob.type || 'image/jpeg'}));
+      }
+    }catch(err){
+      alert('Không đọc được file ZIP: ' + err.message);
+    }
+  }
+
+  function addImageFile(file){
+    const id = 'img_' + (idCounter++);
+    const url = URL.createObjectURL(file);
+    state.items.push({id, file, url, name:file.name, addedIndex: idCounter, status:'pending', translatedBlob:null, translatedUrl:null});
+  }
+
+  function refreshUI(){
+    grid.innerHTML = '';
+    emptyMsg.style.display = state.items.length ? 'none' : 'block';
+    countPill.textContent = state.items.length + ' ảnh';
+    translateBtn.disabled = state.items.length === 0 || state.processing;
+    downloadBtn.disabled = !state.items.some(it => it.status === 'done');
+
+    for(const item of state.items){
+      const card = document.createElement('div');
+      card.className = 'card';
+      const img = document.createElement('img');
+      img.src = item.translatedUrl || item.url;
+      card.appendChild(img);
+
+      const badge = document.createElement('div');
+      badge.className = 'badge ' + item.status;
+      badge.textContent = item.status === 'pending' ? 'Chờ'
+        : item.status === 'working' ? 'Đang dịch'
+        : item.status === 'done' ? (item.noTextFound ? 'Không thấy chữ' : 'Xong')
+        : 'Lỗi';
+      if(item.status === 'done' && item.noTextFound) badge.className += ' warn';
+      if(item.status === 'error' && item.errorMsg) badge.title = item.errorMsg;
+      card.appendChild(badge);
+
+      const remove = document.createElement('div');
+      remove.className = 'remove';
+      remove.textContent = '×';
+      remove.title = 'Bỏ ảnh này';
+      remove.onclick = () => {
+        state.items = state.items.filter(it => it.id !== item.id);
+        refreshUI();
+      };
+      card.appendChild(remove);
+
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = item.name;
+      card.appendChild(name);
+
+      if(item.debugInfo){
+        const dbg = document.createElement('div');
+        dbg.style.cssText = 'font-size:10px; color:var(--paper-dim); padding:4px 8px; border-top:1px solid var(--line); line-height:1.4;';
+        dbg.textContent = item.debugInfo;
+        card.appendChild(dbg);
+      }
+      if(item.status === 'error' && item.errorMsg){
+        const errLine = document.createElement('div');
+        errLine.style.cssText = 'font-size:10.5px; color:var(--accent); padding:4px 8px; border-top:1px solid var(--line); line-height:1.4; word-break:break-word;';
+        errLine.textContent = item.errorMsg;
+        card.appendChild(errLine);
+      }
+
+      grid.appendChild(card);
+    }
+  }
+
+  dropzone.addEventListener('click', () => fileInputFiles.click());
+  document.getElementById('pickFiles').addEventListener('click', (e)=>{ e.stopPropagation(); fileInputFiles.click(); });
+  document.getElementById('pickFolder').addEventListener('click', (e)=>{ e.stopPropagation(); fileInputFolder.click(); });
+
+  ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => {
+    e.preventDefault(); dropzone.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => {
+    e.preventDefault(); dropzone.classList.remove('drag');
+  }));
+  dropzone.addEventListener('drop', e => {
+    if(e.dataTransfer.files && e.dataTransfer.files.length){
+      addFileList(e.dataTransfer.files);
+    }
+  });
+  fileInputFiles.addEventListener('change', e => addFileList(e.target.files));
+  fileInputFolder.addEventListener('change', e => addFileList(e.target.files));
+
+  clearBtn.addEventListener('click', () => {
+    if(state.processing) return;
+    state.items = [];
+    refreshUI();
+  });
+
+  // ---- Translation ----
+  function mapSrcForTranslate(t){
+    const map = {jpn:'ja', jpn_vert:'ja', eng:'en', kor:'ko', chi_sim:'zh-CN', chi_tra:'zh-TW'};
+    return map[t] || 'auto';
+  }
+
+  async function translateText(text, srcLang){
+    const src = srcLang.includes('+') ? 'auto' : mapSrcForTranslate(srcLang);
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' + src + '&tl=vi&dt=t&q=' + encodeURIComponent(text);
+    try{
+      const res = await fetch(url);
+      const data = await res.json();
+      return data[0].map(seg => seg[0]).join('');
+    }catch(err){
+      return text;
+    }
+  }
+
+  // Translate every text block of an image in ONE network request instead of one-per-bubble.
+  async function translateBatch(texts, srcLang){
+    if(texts.length === 0) return [];
+    const DELIM = '\n|||\n';
+    const joined = texts.join(DELIM);
+    const src = srcLang.includes('+') ? 'auto' : mapSrcForTranslate(srcLang);
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' + src + '&tl=vi&dt=t&q=' + encodeURIComponent(joined);
+    try{
+      const res = await fetch(url);
+      const data = await res.json();
+      const combined = data[0].map(seg => seg[0]).join('');
+      const parts = combined.split(/\|\|\|/).map(s => s.replace(/^\s+|\s+$/g,''));
+      if(parts.length === texts.length) return parts;
+    }catch(err){ /* fall through to per-line fallback below */ }
+
+    // Fallback: batching failed (rare) — translate one by one so the image still completes.
+    const results = [];
+    for(const t of texts) results.push(await translateText(t, srcLang));
+    return results;
+  }
+
+  // ---- Image loading (robust: falls back if createImageBitmap fails on a given file) ----
+  async function loadBitmap(file){
+    try{
+      const bmp = await createImageBitmap(file);
+      if(bmp && bmp.width > 0 && bmp.height > 0) return bmp;
+    }catch(e){ /* try fallback below */ }
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => resolve(img);
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Không đọc được ảnh (file hỏng hoặc định dạng lạ).')); };
+      img.src = url;
+    });
+  }
+
+  // Fraction of non-space characters that are CJK ideographs / kana / Hangul.
+  function cjkCharRatio(text){
+    const stripped = text.replace(/\s/g, '');
+    if(stripped.length === 0) return 0;
+    const cjk = (stripped.match(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]/g) || []).length;
+    return cjk / stripped.length;
+  }
+
+  // ---- OCR + redraw ----
+  // Extracts text regions using the free Tesseract pipeline. Uses a shared, persistent
+  // worker (created once per translate run instead of once per image) and page-segmentation
+  // mode "sparse text", which treats each speech bubble as its own independent region
+  // instead of trying to merge the whole page into a few reading-order blocks.
+  // Hard ceiling on box size, independent of what the OCR/AI engine reported — some
+  // Gemini responses return a box_2d spanning most of a panel for a short line of
+  // dialogue, and neither the flood-fill cap nor the font-size slider can fix an
+  // oversized STARTING box. This clamps width/height to a fraction of the page,
+  // shrinking symmetrically around the box's own center so position is preserved.
+  function capBoxSize(box, canvasW, canvasH, maxWFrac, maxHFrac){
+    let {x0, y0, x1, y1} = box;
+    const maxW = canvasW * maxWFrac, maxH = canvasH * maxHFrac;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    if(x1 - x0 > maxW){ x0 = cx - maxW/2; x1 = cx + maxW/2; }
+    if(y1 - y0 > maxH){ y0 = cy - maxH/2; y1 = cy + maxH/2; }
+    return { x0, y0, x1, y1 };
+  }
+
+  async function getRegionsViaTesseract(bitmap, worker, srcLang, fullW, fullH){
+    // Downscaled copy for OCR — much faster, detection quality is basically unaffected.
+    // Everything below (word positions, clustering, bubble-shape detection) happens in
+    // THIS canvas's coordinate space; the caller converts to output pixels at the end.
+    const ocrScale = Math.min(1, OCR_MAX_DIM / Math.max(fullW, fullH));
+    const ocrCanvas = document.createElement('canvas');
+    ocrCanvas.width = Math.max(1, Math.round(fullW * ocrScale));
+    ocrCanvas.height = Math.max(1, Math.round(fullH * ocrScale));
+    const ocrCtx = ocrCanvas.getContext('2d');
+    ocrCtx.drawImage(bitmap, 0, 0, ocrCanvas.width, ocrCanvas.height);
+    const ocrArea = ocrCanvas.width * ocrCanvas.height;
+
+    // IMPORTANT: Tesseract.js v5 only returns the "text" output by default — word/line/
+    // block position data has to be requested explicitly, or data.blocks stays null and
+    // nothing is ever detected (this was the actual bug causing zero translation).
+    const { data } = await worker.recognize(ocrCanvas, {}, { blocks: true });
+
+    // Tesseract's own "blocks" often fragment a single speech bubble into many tiny
+    // pieces (especially with vertical manga text). Cluster individual recognized words
+    // by proximity instead, so each cluster ends up matching one bubble, not one syllable.
+    const words = [];
+    let rawWordCount = 0;
+    const blockList = data.blocks || [];
+    for(const block of blockList){
+      for(const para of (block.paragraphs || [])){
+        for(const line of (para.lines || [])){
+          for(const w of (line.words || [])){
+            rawWordCount++;
+            if(w.text && w.text.trim().length > 0 && w.confidence > 45){
+              words.push({ text: w.text.trim(), x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 });
+            }
+          }
+        }
+      }
+    }
+    // Diagnostics so we can see exactly what Tesseract returned instead of guessing.
+    let debugInfo = 'text thô: ' + ((data.text||'').trim().length) + ' ký tự · blocks: ' + blockList.length
+      + ' · từ thô: ' + rawWordCount + ' · từ đạt ngưỡng: ' + words.length;
+
+    let wordClusters = clusterWordsIntoRegions(words, ocrArea)
+      // Safety net: throw out any region that's clearly a mis-segmented giant block
+      // (e.g. more than ~1/5 of the whole page) rather than painting over the art.
+      .filter(r => ((r.x1 - r.x0) * (r.y1 - r.y0)) < ocrArea * 0.2);
+
+    // For CJK source languages, a real dialogue line should be mostly CJK/Hangul
+    // characters. A cluster that's mostly stray Latin letters is almost always OCR
+    // misreading art/screentone as text, not an actual missed romanized word.
+    const cjkLangs = ['jpn','jpn_vert','chi_sim','chi_tra','kor'];
+    if(cjkLangs.includes(srcLang)){
+      wordClusters = wordClusters.filter(r => cjkCharRatio(r.text) >= 0.3);
+    }
+    debugInfo += ' · vùng sau gộp+lọc rác: ' + wordClusters.length;
+
+    // Use the detected text cluster plus a generous fixed padding as the region — always
+    // drawn as a solid, growable rounded-rect/rect (see renderRegion). Earlier versions
+    // tried to trace the exact bubble outline via flood fill, but that was unreliable
+    // (sometimes leaked into neighboring bubbles, sometimes stopped short on internal
+    // shading) — a padded box that's ALWAYS fully drawn is more reliable than a
+    // pixel-perfect shape that sometimes doesn't fully cover the original text.
+    const regions = wordClusters.map(r => {
+      const padX = Math.max(3, (r.x1 - r.x0) * 0.10);
+      const padY = Math.max(3, (r.y1 - r.y0) * 0.30);
+      return { text: r.text, translatedText: null, x0: r.x0 - padX, y0: r.y0 - padY, x1: r.x1 + padX, y1: r.y1 + padY, mask: null };
+    });
+
+    return { regions, workingScale: ocrScale, debugInfo };
+  }
+
+  // Extracts text regions AND their Vietnamese translation in one call using Gemini's
+  // vision capabilities — generally far more accurate than Tesseract on stylized manga
+  // text, and gives fluent, context-aware translation instead of literal line-by-line
+  // machine translation.
+  async function getRegionsViaGemini(bitmap, apiKey, fullW, fullH){
+    const scale = Math.min(1, GEMINI_MAX_DIM / Math.max(fullW, fullH));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(fullW * scale));
+    canvas.height = Math.max(1, Math.round(fullH * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+    const prompt = 'Bạn là công cụ OCR và dịch thuật truyện tranh (manga/comic/manhwa). '
+      + 'Tìm TẤT CẢ các vùng có chữ hội thoại, độc thoại, hoặc chú thích trên trang này (bỏ qua chữ ký hoạ sĩ, watermark). '
+      + 'Trả lời DUY NHẤT một mảng JSON, không thêm chữ giải thích nào khác, theo đúng định dạng:\n'
+      + '[{"box_2d": [ymin,xmin,ymax,xmax], "has_bubble": true, "original_text": "...", "vietnamese_translation": "..."}]\n'
+      + 'box_2d là toạ độ (số nguyên 0-1000) của vùng chứa đoạn chữ đó — lấy SÁT đúng viền khung thoại thật (nếu có), không lấy dư khoảng trắng thừa ra ngoài viền. '
+      + 'has_bubble = true nếu đoạn chữ nằm trong một khung/bong bóng thoại có viền khép kín rõ ràng bao quanh; has_bubble = false nếu chữ nằm tự do trực tiếp trên nền tranh, KHÔNG có viền bao quanh (ví dụ chữ tượng thanh/hiệu ứng âm thanh vẽ tay, chữ trang trí, tên nhân vật). '
+      + 'vietnamese_translation phải là bản dịch tiếng Việt tự nhiên, đúng ngữ cảnh của cả câu, không dịch cứng nhắc từng từ. '
+      + 'Dịch NGẮN GỌN, súc tích như lời thoại truyện tranh thật sự (không thêm từ đệm, không giải thích dài dòng) vì bản dịch sẽ được đặt vừa trong khung thoại có kích thước giới hạn.';
+
+    const requestBody = JSON.stringify({
+      contents: [{ parts: [
+        { inline_data: { mime_type: 'image/jpeg', data: base64 } },
+        { text: prompt }
+      ]}],
+      generationConfig: {
+        response_mime_type: 'application/json',
+        thinkingConfig: { thinkingLevel: 'low' }
+      }
+    });
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=' + encodeURIComponent(apiKey);
+
+    let resp;
+    const MAX_ATTEMPTS = 3;
+    for(let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
+      try{
+        resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody });
+      }catch(networkErr){
+        throw new Error('Không kết nối được tới Gemini API (mạng chặn hoặc lỗi CORS): ' + networkErr.message);
+      }
+      // 503 (quá tải tạm thời) và 429 (vượt hạn mức/phút) thường tự hết sau vài giây — thử lại
+      // thay vì báo lỗi ngay, vì đây là tình trạng tạm thời phía Google, không phải lỗi của bạn.
+      if((resp.status === 503 || resp.status === 429) && attempt < MAX_ATTEMPTS){
+        await new Promise(r => setTimeout(r, attempt * 4000));
+        continue;
+      }
+      break;
+    }
+
+    if(!resp.ok){
+      let errText = '';
+      try{ errText = (await resp.json()).error?.message || ''; }catch(e){}
+      const hint = resp.status === 503 ? ' Model đang quá tải, đợi một chút rồi bấm dịch lại.'
+        : resp.status === 429 ? ' Đã vượt hạn mức gọi API tạm thời, đợi một chút rồi thử lại.'
+        : ' Kiểm tra lại API key hoặc hạn mức miễn phí.';
+      throw new Error('Gemini API lỗi (HTTP ' + resp.status + ')' + (errText ? ': ' + errText : '') + '.' + hint);
+    }
+    const json = await resp.json();
+    const parts = json.candidates?.[0]?.content?.parts || [];
+    const textOut = parts.map(p => p.text || '').join('');
+
+    let items = [];
+    try{ items = JSON.parse(textOut); }
+    catch(e){
+      try{ items = JSON.parse(textOut.replace(/```json|```/g, '').trim()); }
+      catch(e2){ throw new Error('Không đọc được kết quả từ Gemini (định dạng JSON không hợp lệ).'); }
+    }
+    if(!Array.isArray(items)) items = [];
+
+    const regions = [];
+    for(const it of items){
+      if(!it || !Array.isArray(it.box_2d) || it.box_2d.length < 4) continue;
+      const [ymin, xmin, ymax, xmax] = it.box_2d;
+      const x0 = (xmin/1000) * canvas.width, y0 = (ymin/1000) * canvas.height;
+      const x1 = (xmax/1000) * canvas.width, y1 = (ymax/1000) * canvas.height;
+      if(x1 <= x0 || y1 <= y0) continue;
+      const hasBubble = it.has_bubble !== false; // default true unless the model explicitly says no
+      const padX = hasBubble ? Math.max(3, (x1-x0) * 0.08) : Math.max(2, (x1-x0) * 0.04);
+      const padY = hasBubble ? Math.max(3, (y1-y0) * 0.22) : Math.max(2, (y1-y0) * 0.10);
+      regions.push({
+        text: it.original_text || '',
+        translatedText: it.vietnamese_translation || it.original_text || '',
+        x0: x0-padX, y0: y0-padY, x1: x1+padX, y1: y1+padY, mask: null, hasBubble
+      });
+    }
+
+    const debugInfo = 'Gemini: ' + items.length + ' vùng model trả về · ' + regions.length + ' vùng hợp lệ sau lọc';
+    return { regions, workingScale: scale, debugInfo };
+  }
+
+  async function processImage(item, engineCtx, fontScale, bubbleShape){
+    item.status = 'working';
+    refreshUI();
+    try{
+      const bitmap = await loadBitmap(item.file);
+      const fullW = bitmap.width, fullH = bitmap.height;
+      if(!fullW || !fullH) throw new Error('Ảnh không hợp lệ.');
+
+      const result = engineCtx.mode === 'gemini'
+        ? await getRegionsViaGemini(bitmap, engineCtx.apiKey, fullW, fullH)
+        : await getRegionsViaTesseract(bitmap, engineCtx.worker, engineCtx.srcLang, fullW, fullH);
+
+      const { regions, workingScale, debugInfo } = result;
+      item.debugInfo = debugInfo;
+      if(regions.length === 0) item.noTextFound = true;
+      resolveOverlaps(regions);
+
+      const translations = engineCtx.mode === 'gemini'
+        ? regions.map(r => r.translatedText)
+        : await translateBatch(regions.map(r => r.text), engineCtx.srcLang);
+
+      // Output canvas capped in size — very large scans can silently fail to render on
+      // some mobile browsers' canvas implementations, which exports as solid black.
+      const outScale = Math.min(1, OUT_MAX_DIM / Math.max(fullW, fullH));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(fullW * outScale);
+      canvas.height = Math.round(fullH * outScale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      // Maps the region-extraction canvas coordinates straight to output-canvas
+      // coordinates in one step (works the same regardless of which engine was used).
+      const combinedScale = outScale / workingScale;
+
+      regions.forEach((r, i) => {
+        const w = (r.x1 - r.x0) * combinedScale, h = (r.y1 - r.y0) * combinedScale;
+        if(w < 10 || h < 10) return;
+        renderRegion(ctx, r, translations[i] || r.text, fontScale, canvas.width, canvas.height, bubbleShape, combinedScale);
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+      if(!blob) throw new Error('Không xuất được ảnh JPG.');
+      item.translatedBlob = blob;
+      item.translatedUrl = URL.createObjectURL(blob);
+      item.status = 'done';
+    }catch(err){
+      console.error(err);
+      item.status = 'error';
+      item.errorMsg = err.message || String(err);
+    }
+    refreshUI();
+  }
+
+  // Draws one translated region onto the output canvas. If a real traced bubble
+  // silhouette (mask) is available, scales it up and composites it as a solid white
+  // shape — this follows the bubble's actual outline (oval, tail, whatever it is)
+  // instead of approximating with a rounded rectangle, and text is NOT allowed to grow
+  // past it (hasMask=true) since anything outside the mask is un-whitened original art.
+  // Otherwise falls back to a rounded-rect/rect approximation where modest growth is safe.
+  function renderRegion(ctx, region, text, fontScale, canvasW, canvasH, bubbleShape, combinedScale){
+    const margin = 4; // keep a hair off the very edge so the border stroke isn't clipped
+    const x0 = Math.max(margin, region.x0 * combinedScale);
+    const y0 = Math.max(margin, region.y0 * combinedScale);
+    const x1 = Math.min(canvasW - margin, region.x1 * combinedScale);
+    const y1 = Math.min(canvasH - margin, region.y1 * combinedScale);
+    const w = Math.max(1, x1 - x0), h = Math.max(1, y1 - y0);
+
+    if(region.mask){
+      const maskFit = fitTextToBox(ctx, text, x0, y0, w, h, fontScale, canvasW, canvasH, true);
+      if(maskFit.fits){
+        const shapeCanvas = document.createElement('canvas');
+        shapeCanvas.width = Math.max(1, Math.round(w));
+        shapeCanvas.height = Math.max(1, Math.round(h));
+        const sctx = shapeCanvas.getContext('2d');
+        sctx.drawImage(region.mask, 0, 0, shapeCanvas.width, shapeCanvas.height);
+        sctx.globalCompositeOperation = 'source-in';
+        sctx.fillStyle = '#ffffff';
+        sctx.fillRect(0, 0, shapeCanvas.width, shapeCanvas.height);
+        ctx.drawImage(shapeCanvas, x0, y0);
+        drawFittedText(ctx, maskFit);
+        return;
+      }
+      // The traced bubble is too small for this text even at the smallest readable font
+      // (can happen when shading/gradient inside the bubble stops the flood-fill early).
+      // Falling through to the growable rounded-rect path below instead of drawing text
+      // that spills outside the white shape onto bare art.
+    }
+    const box = fitTextToBox(ctx, text, x0, y0, w, h, fontScale, canvasW, canvasH, false);
+    const shape = region.hasBubble === false ? 'rect' : bubbleShape;
+    drawBubbleShape(ctx, box.x, box.y, box.w, box.h, shape);
+    drawFittedText(ctx, box);
+  }
+
+  // Flood-fills outward from seed points looking for the enclosed light-colored speech
+  // bubble the text sits on top of. Falls back to the padded text box if the seeds aren't
+  // on a light background, or if the fill runs away (e.g. into open white page margin)
+  // without ever hitting a dark outline to contain it.
+  // If two detected regions overlap (common with tightly-packed panel grids), clip both
+  // back to the midline along whichever axis has the smaller overlap — keeps each box
+  // inside its own bubble instead of spilling into the neighboring one.
+  function resolveOverlaps(regions){
+    for(let i = 0; i < regions.length; i++){
+      for(let j = i + 1; j < regions.length; j++){
+        const a = regions[i], b = regions[j];
+        const overlapX = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+        const overlapY = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+        if(overlapX <= 0 || overlapY <= 0) continue; // no overlap
+        if(overlapX < overlapY){
+          const mid = (Math.max(a.x0, b.x0) + Math.min(a.x1, b.x1)) / 2;
+          if(a.x0 < b.x0){ a.x1 = Math.min(a.x1, mid); b.x0 = Math.max(b.x0, mid); }
+          else { b.x1 = Math.min(b.x1, mid); a.x0 = Math.max(a.x0, mid); }
+        } else {
+          const mid = (Math.max(a.y0, b.y0) + Math.min(a.y1, b.y1)) / 2;
+          if(a.y0 < b.y0){ a.y1 = Math.min(a.y1, mid); b.y0 = Math.max(b.y0, mid); }
+          else { b.y1 = Math.min(b.y1, mid); a.y0 = Math.max(a.y0, mid); }
+        }
+        // A clipped box no longer matches a traced mask's exact silhouette (and if the
+        // mask leaked into a neighbor in the first place, it's not trustworthy anyway) —
+        // fall back to the safe rounded-rect/rect renderer for both regions.
+        a.mask = null;
+        b.mask = null;
+      }
+    }
+    return regions;
+  }
+
+  function detectBubbleBox(imageData, w, h, seeds, fallbackBox, ocrArea){
+    const data = imageData.data;
+    const visited = new Uint8Array(w * h);
+    const inMask = new Uint8Array(w * h);
+    const stack = [];
+    for(const [sx, sy] of seeds){
+      const xi = Math.max(0, Math.min(w-1, Math.round(sx)));
+      const yi = Math.max(0, Math.min(h-1, Math.round(sy)));
+      stack.push(yi * w + xi);
+    }
+    const fallbackArea = Math.max(1, (fallbackBox.x1-fallbackBox.x0) * (fallbackBox.y1-fallbackBox.y0));
+    const LUM_THRESH = 222;
+    // Cap relative to the ORIGINAL text box, not just a fraction of the whole page — a
+    // single line of dialogue swelling to 10% of the entire page is never correct, even
+    // though 10% of the page might technically be "a small enclosed shape" on some pages.
+    const MAX_PIXELS = Math.min(Math.max(4000, ocrArea * 0.1), fallbackArea * 1.5);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let count = 0, anyLight = false;
+    const cappedFallback = capBoxSize(fallbackBox, w, h, 0.32, 0.20);
+    const noMask = { x0: cappedFallback.x0, y0: cappedFallback.y0, x1: cappedFallback.x1, y1: cappedFallback.y1, mask: null };
+
+    while(stack.length){
+      const idx = stack.pop();
+      if(visited[idx]) continue;
+      visited[idx] = 1;
+      const p = idx * 4;
+      const lum = (data[p] + data[p+1] + data[p+2]) / 3;
+      if(lum < LUM_THRESH) continue; // dark pixel = bubble outline/art — don't cross it
+      anyLight = true;
+      inMask[idx] = 1;
+      count++;
+      if(count > MAX_PIXELS) return noMask; // ran away — not a small enclosed shape
+      const x = idx % w, y = (idx / w) | 0;
+      if(x < minX) minX = x; if(x > maxX) maxX = x;
+      if(y < minY) minY = y; if(y > maxY) maxY = y;
+      if(x > 0) stack.push(idx - 1);
+      if(x < w - 1) stack.push(idx + 1);
+      if(y > 0) stack.push(idx - w);
+      if(y < h - 1) stack.push(idx + w);
+    }
+    if(!anyLight || count < 20) return noMask;
+    // Small margin so the fill doesn't hug the inner edge of the bubble's outline.
+    const box = { x0: minX + 1, y0: minY + 1, x1: maxX - 1, y1: maxY - 1 };
+    if(box.x1 <= box.x0 || box.y1 <= box.y0) return noMask;
+    const boxArea = (box.x1-box.x0) * (box.y1-box.y0);
+    // Must be a sane size: not smaller than the text itself, and not wildly bigger either.
+    if(boxArea < fallbackArea) return noMask;
+    if(boxArea > fallbackArea * 1.5) return noMask;
+
+    // Build a small mask bitmap of exactly which pixels were traced as "inside the
+    // bubble" — this is what lets the final overlay match the original bubble's real
+    // outline (oval, tail, whatever shape it is) instead of a generic rounded rectangle.
+    const mw = box.x1 - box.x0, mh = box.y1 - box.y0;
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = mw;
+    maskCanvas.height = mh;
+    const mctx = maskCanvas.getContext('2d');
+    const maskData = mctx.createImageData(mw, mh);
+    for(let yy = 0; yy < mh; yy++){
+      for(let xx = 0; xx < mw; xx++){
+        const srcIdx = (box.y0 + yy) * w + (box.x0 + xx);
+        const p = (yy * mw + xx) * 4;
+        maskData.data[p] = 255; maskData.data[p+1] = 255; maskData.data[p+2] = 255;
+        maskData.data[p+3] = inMask[srcIdx] ? 255 : 0;
+      }
+    }
+    mctx.putImageData(maskData, 0, 0);
+    return { x0: box.x0, y0: box.y0, x1: box.x1, y1: box.y1, mask: maskCanvas };
+  }
+
+  // Greedily merges nearby word boxes into single regions, so a whole line/bubble of
+  // text becomes one region instead of one tiny region per word or per character.
+  function clusterWordsIntoRegions(words, imgArea){
+    if(words.length === 0) return [];
+
+    // Use a FIXED reference distance (typical word height), computed once from the
+    // original words — not recomputed from each cluster's own (growing) bbox. Using the
+    // growing bbox as the threshold is what caused runaway merging: once two words joined,
+    // the bigger box made the next merge even easier, cascading into ~1 cluster covering
+    // almost the whole page.
+    const heights = words.map(w => w.y1 - w.y0).sort((a,b) => a-b);
+    const medianH = heights[Math.floor(heights.length/2)] || 12;
+    const mergeThresh = medianH * 1.3;
+    const maxClusterArea = imgArea ? imgArea * 0.12 : Infinity; // per-merge cap, stricter than the final 20% filter
+
+    let clusters = words.map(w => ({ x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, parts:[w] }));
+    let merged = true;
+    while(merged){
+      merged = false;
+      for(let i = 0; i < clusters.length && !merged; i++){
+        for(let j = i + 1; j < clusters.length; j++){
+          const a = clusters[i], b = clusters[j];
+          const gapX = Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1);
+          const gapY = Math.max(a.y0, b.y0) - Math.min(a.y1, b.y1);
+          if(gapX < mergeThresh && gapY < mergeThresh){
+            const nx0 = Math.min(a.x0,b.x0), ny0 = Math.min(a.y0,b.y0);
+            const nx1 = Math.max(a.x1,b.x1), ny1 = Math.max(a.y1,b.y1);
+            if((nx1-nx0) * (ny1-ny0) > maxClusterArea) continue; // would balloon too large — skip this pair
+            const combined = { x0:nx0, y0:ny0, x1:nx1, y1:ny1, parts: a.parts.concat(b.parts) };
+            clusters.splice(j,1); clusters.splice(i,1); clusters.push(combined);
+            merged = true;
+            break;
+          }
+        }
+      }
+    }
+    return clusters.map(c => {
+      // Approximate reading order: top-to-bottom, then left-to-right within a row.
+      const parts = c.parts.slice().sort((p1,p2) => (p1.y0 - p2.y0) || (p1.x0 - p2.x0));
+      return { x0:c.x0, y0:c.y0, x1:c.x1, y1:c.y1, text: parts.map(p=>p.text).join(' ') };
+    });
+  }
+
+  // Picks the largest font size that fits (never below a readable minimum), and if the
+  // text still doesn't fit at the minimum size, grows the box a LIMITED amount — beyond
+  // that limit, shrinks the font further instead, so the box can't balloon indefinitely.
+  // Single shared formula for corner rounding — used by BOTH the drawn shape and the
+  // text layout, so the two always agree on where the "safe" (non-rounded) area is.
+  function bubbleRadius(w, h){
+    return Math.max(5, Math.min(Math.min(w, h) * 0.16, 22));
+  }
+
+  function fitTextToBox(ctx, text, x, y, boxW, boxH, fontScale, canvasW, canvasH, hasMask){
+    const MIN_FONT = 12, HARD_MIN_FONT = 9; // px on the (max 2200px) output canvas
+    const origW = boxW, origH = boxH;
+    ctx.textBaseline = 'top';
+
+    // Text must stay clear of the rounded corners, or characters near a corner poke out
+    // past the curve into the surrounding art — this margin is what prevents that.
+    // For a REAL mask (arbitrary bubble silhouette) we don't know the exact interior shape,
+    // so use a generous flat inset instead of the rounded-rect corner formula.
+    function wrapWidth(bw, bh){
+      if(hasMask) return Math.max(10, bw * 0.8);
+      const inset = bubbleRadius(bw, bh) * 0.85;
+      return Math.max(10, bw - inset * 2);
+    }
+    function safeHeightFactor(){ return hasMask ? 0.82 : 0.9; }
+
+    let fontSize = Math.max(MIN_FONT, Math.round(BASE_FONT * (fontScale/100)));
+    let lines, lineHeight;
+    while(fontSize > MIN_FONT){
+      ctx.font = fontSize + 'px Arial, sans-serif';
+      lines = wrapText(ctx, text, wrapWidth(boxW, boxH) * 0.96);
+      lineHeight = fontSize * 1.15;
+      if(lines.length * lineHeight <= boxH * safeHeightFactor()) break;
+      fontSize -= 1;
+    }
+    ctx.font = fontSize + 'px Arial, sans-serif';
+    lines = wrapText(ctx, text, wrapWidth(boxW, boxH) * 0.96);
+    lineHeight = fontSize * 1.15;
+
+    if(!hasMask){
+      // Grow height a limited amount if the text still overflows at the minimum font size —
+      // capped so it can't swallow neighboring panel art. Only safe for the synthetic
+      // rectangle/rounded-rect shape — a real mask must never be exceeded, since anything
+      // outside it is un-whitened original art.
+      let neededH = (lines.length * lineHeight) / 0.9;
+      if(neededH > boxH){
+        const grow = Math.min(neededH - boxH, origH * 0.15);
+        y = Math.max(0, y - grow/2);
+        boxH = Math.min(canvasH - y, boxH + grow);
+      }
+    }
+    // If it still doesn't fit, shrink the font further (below the normal readability
+    // floor) rather than growing the box any more.
+    while(fontSize > HARD_MIN_FONT && lines.length * lineHeight > boxH * safeHeightFactor()){
+      fontSize -= 1;
+      ctx.font = fontSize + 'px Arial, sans-serif';
+      lines = wrapText(ctx, text, wrapWidth(boxW, boxH) * 0.96);
+      lineHeight = fontSize * 1.15;
+    }
+    if(!hasMask){
+      // Grow width a limited amount if a single word/line is still wider than the safe area.
+      const ww = wrapWidth(boxW, boxH);
+      const maxLineWidth = Math.max(0, ...lines.map(l => ctx.measureText(l).width));
+      if(maxLineWidth > ww * 0.96){
+        const growW = Math.min((maxLineWidth / 0.96) - ww, origW * 0.15);
+        x = Math.max(0, x - growW/2);
+        boxW = Math.min(canvasW - x, boxW + growW);
+      }
+    }
+
+    const fits = lines.length * lineHeight <= boxH * safeHeightFactor() * 1.05; // small slack for rounding
+
+    return { x, y, w: boxW, h: boxH, lines, lineHeight, fontSize, fits };
+  }
+
+  // Draws the white overlay as either a rounded "speech bubble" shape (with a thin border,
+  // like real manga bubbles) or a plain rectangle, per the user's chosen style. Uses the
+  // exact same bubbleRadius() as fitTextToBox, so the shape and the text always agree.
+  function drawBubbleShape(ctx, x, y, w, h, shape){
+    ctx.fillStyle = '#ffffff';
+    if(shape === 'rect'){
+      ctx.fillRect(x, y, w, h);
+      return;
+    }
+    const radius = Math.min(bubbleRadius(w, h), w/2, h/2);
+    ctx.beginPath();
+    if(typeof ctx.roundRect === 'function'){
+      ctx.roundRect(x, y, w, h, radius);
+    } else {
+      const r = radius;
+      ctx.moveTo(x+r, y);
+      ctx.lineTo(x+w-r, y);
+      ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+      ctx.lineTo(x+w, y+h-r);
+      ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+      ctx.lineTo(x+r, y+h);
+      ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+      ctx.lineTo(x, y+r);
+      ctx.quadraticCurveTo(x, y, x+r, y);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.2, Math.min(w, h) * 0.015);
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.stroke();
+  }
+
+  function drawFittedText(ctx, box){
+    ctx.font = box.fontSize + 'px Arial, sans-serif';
+    ctx.fillStyle = '#111111';
+    ctx.textBaseline = 'top';
+    const totalH = box.lines.length * box.lineHeight;
+    let startY = box.y + (box.h - totalH) / 2;
+    for(const l of box.lines){
+      const width = ctx.measureText(l).width;
+      const lx = box.x + (box.w - width) / 2;
+      ctx.fillText(l, lx, startY);
+      startY += box.lineHeight;
+    }
+  }
+
+  function wrapText(ctx, text, maxWidth){
+    const words = text.split(/\s+/).filter(Boolean);
+    const lines = [];
+    let current = '';
+    for(const word of words){
+      const test = current ? current + ' ' + word : word;
+      if(ctx.measureText(test).width > maxWidth && current){
+        lines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    if(current) lines.push(current);
+    return lines.length ? lines : [text];
+  }
+
+  const errorBanner = document.getElementById('errorBanner');
+  function showError(msg){
+    errorBanner.textContent = msg;
+    errorBanner.style.display = 'block';
+    errorBanner.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+  function clearError(){
+    errorBanner.style.display = 'none';
+  }
+
+  function withTimeout(promise, ms, label){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' quá lâu không phản hồi (kiểm tra lại kết nối mạng).')), ms))
+    ]);
+  }
+
+  translateBtn.addEventListener('click', async () => {
+    if(state.processing || state.items.length === 0) return;
+    state.processing = true;
+    translateBtn.disabled = true;
+    downloadBtn.disabled = true;
+    clearError();
+
+    const mode = engineMode.value;
+    const srcLang = document.getElementById('srcLang').value;
+    const fontScale = Number(document.getElementById('fontSize').value);
+    const bubbleShape = document.getElementById('bubbleShape').value;
+    const concurrency = Number(document.getElementById('concurrency').value);
+    const total = state.items.length;
+
+    let workers = [];
+    let laneCtxs = [];
+
+    if(mode === 'gemini'){
+      const apiKey = geminiKeyInput.value.trim();
+      if(!apiKey){
+        showError('Bạn cần nhập Gemini API key trước (lấy miễn phí tại aistudio.google.com/apikey), hoặc chuyển lại bộ máy "Miễn phí" ở trên.');
+        state.processing = false;
+        translateBtn.disabled = false;
+        refreshUI();
+        return;
+      }
+      progressLabel.textContent = 'Đang dịch bằng Gemini...';
+      progressFill.style.width = '0%';
+      for(let k = 0; k < concurrency; k++) laneCtxs.push({ mode: 'gemini', apiKey });
+    } else {
+      progressLabel.textContent = 'Đang tải bộ nhận diện chữ (lần đầu có thể mất chút thời gian)...';
+      progressFill.style.width = '0%';
+      try{
+        for(let k = 0; k < concurrency; k++){
+          const isVertical = srcLang.includes('vert');
+          const w = await withTimeout(
+            Tesseract.createWorker(srcLang, 1, {
+              errorHandler: (e) => console.error('Tesseract worker error:', e)
+            }, isVertical ? { textord_tabfind_vertical_text: '1' } : undefined),
+            60000, 'Tải dữ liệu nhận diện chữ'
+          );
+          // Sparse text: each speech bubble is its own region instead of one page-wide block.
+          // The vertical-text flag is required for the layout stage to even look for columns —
+          // without it, vertical manga text is invisible to segmentation and 0 regions come back.
+          const params = { tessedit_pageseg_mode: '11' };
+          if(isVertical) params.textord_tabfind_vertical_text = '1';
+          await w.setParameters(params);
+          workers.push(w);
+          laneCtxs.push({ mode: 'tesseract', worker: w, srcLang });
+        }
+      }catch(err){
+        console.error(err);
+        showError('Không tải được bộ nhận diện chữ: ' + (err.message || err) + ' — hãy kiểm tra kết nối mạng rồi bấm "Bắt đầu dịch" lại. Nếu vẫn lỗi, thử đổi ngôn ngữ gốc hoặc dùng ít ảnh song song hơn.');
+        for(const w of workers){ try{ await w.terminate(); }catch(e){} }
+        state.processing = false;
+        translateBtn.disabled = false;
+        refreshUI();
+        return;
+      }
+    }
+
+    let doneCount = 0;
+    let cursor = 0;
+    let hadError = false;
+    async function lane(engineCtx){
+      while(cursor < state.items.length){
+        const item = state.items[cursor++];
+        try{
+          await withTimeout(processImage(item, engineCtx, fontScale, bubbleShape), 150000, 'Dịch ảnh "' + item.name + '"');
+        }catch(err){
+          console.error(err);
+          item.status = 'error';
+          item.errorMsg = err.message || String(err);
+          hadError = true;
+        }
+        doneCount++;
+        progressFill.style.width = Math.round((doneCount/total)*100) + '%';
+        progressLabel.textContent = 'Đang dịch ' + doneCount + '/' + total;
+        refreshUI();
+      }
+    }
+
+    try{
+      await Promise.all(laneCtxs.map(ctx => lane(ctx)));
+    }catch(err){
+      console.error(err);
+      showError('Có lỗi xảy ra khi dịch: ' + (err.message || err));
+      hadError = true;
+    }
+    for(const w of workers){ try{ await w.terminate(); }catch(e){} }
+
+    progressLabel.textContent = hadError
+      ? 'Hoàn tất ' + total + '/' + total + ' (một vài ảnh bị lỗi, xem nhãn "Lỗi" trên ảnh)'
+      : 'Hoàn tất ' + total + '/' + total;
+    state.processing = false;
+    refreshUI();
+  });
+
+  downloadBtn.addEventListener('click', async () => {
+    const doneItems = state.items.filter(it => it.status === 'done' && it.translatedBlob);
+    if(doneItems.length === 0) return;
+    downloadBtn.disabled = true;
+    progressLabel.textContent = 'Đang đóng gói ZIP...';
+
+    const zip = new JSZip();
+    doneItems.forEach((item, i) => {
+      zip.file('trang_' + String(i+1).padStart(3,'0') + '.jpg', item.translatedBlob);
+    });
+    const blob = await zip.generateAsync({type:'blob'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'truyen_da_dich.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    progressLabel.textContent = 'Đã tải ZIP xong';
+    downloadBtn.disabled = false;
+  });
+
+  refreshUI();
+})();
+</script>
+
+</body>
+</html>
